@@ -9,11 +9,40 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+# 路径约定：本文件所在目录即项目根，产物默认写在根下的 tmp/ 与 output/。
+# 不在代码里写死绝对路径：相对路径一律按项目根展开（与 cwd 无关），
+# 默认值可被 GACHA_SPEC / GACHA_PROMPTS / GACHA_MANIFEST 环境变量或 CLI 覆盖。
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+DEFAULT_SPEC = "slots.json"
+DEFAULT_PROMPTS = "tmp/imagegen/prompts.jsonl"
+DEFAULT_MANIFEST = "output/imagegen/gacha/manifest.jsonl"
+
+
+def env_path(name: str, fallback: str) -> str:
+    """读环境变量里的路径，留空或全空白时用 fallback。"""
+    value = os.environ.get(name)
+    return value.strip() if value and value.strip() else fallback
+
+
+def project_path(raw) -> Path:
+    """绝对路径原样保留，相对路径按项目根展开。"""
+    path = Path(str(raw)).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def display_path(path) -> str:
+    """落在项目根内就显示相对路径，否则显示原路径。"""
+    resolved = project_path(path)
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
 
 
 def entry_text(entry):
@@ -178,17 +207,29 @@ def load_used(manifest_path: Path) -> set:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="词库采样器（不出图）")
-    ap.add_argument("--spec", type=Path, default=HERE / "slots.json")
+    ap.add_argument("--spec", default=None,
+                    help=f"词库路径，相对路径按项目根展开（默认 {DEFAULT_SPEC}）")
     ap.add_argument("--n", type=int, default=5)
     ap.add_argument("--draw-seed", type=int, default=None, dest="draw_seed")
     ap.add_argument("--pack", action="append", default=[], help="限定风格包，可重复")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
                     help="L2 用户覆盖，key 取 hair/gaze/anchor/scene/outfit/pose/light")
-    ap.add_argument("--prompts", type=Path, default=HERE.parent / "tmp" / "imagegen" / "prompts.jsonl")
-    ap.add_argument("--manifest", type=Path, default=HERE.parent / "output" / "imagegen" / "gacha" / "manifest.jsonl")
+    ap.add_argument("--prompts", default=None,
+                    help=f"任务队列输出，相对路径按项目根展开（默认 {DEFAULT_PROMPTS}）")
+    ap.add_argument("--manifest", default=None,
+                    help=f"记录表与去重依据，相对路径按项目根展开（默认 {DEFAULT_MANIFEST}）")
     ap.add_argument("--quality", default=None)
     ap.add_argument("--size", default=None)
     args = ap.parse_args(argv)
+
+    # 优先级：CLI 显式传参 > GACHA_* 环境变量 > 项目根下的默认路径
+    args.spec = project_path(env_path("GACHA_SPEC", DEFAULT_SPEC) if args.spec is None else args.spec)
+    args.prompts = project_path(
+        env_path("GACHA_PROMPTS", DEFAULT_PROMPTS) if args.prompts is None else args.prompts
+    )
+    args.manifest = project_path(
+        env_path("GACHA_MANIFEST", DEFAULT_MANIFEST) if args.manifest is None else args.manifest
+    )
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
     packs = args.pack or list(spec["packs"].keys())
@@ -260,8 +301,8 @@ def main(argv=None) -> int:
             fh.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     print(f"draw_seed={draw_seed}  产出 {len(jobs)} 条")
-    print(f"prompts -> {args.prompts}")
-    print(f"manifest -> {args.manifest}")
+    print(f"prompts -> {display_path(args.prompts)}")
+    print(f"manifest -> {display_path(args.manifest)}")
     for r in records:
         flag = f"  [{r['warn']}]" if r["warn"] else ""
         print(f"  {r['variant_id']}  {r['chars']}字  {r['slots']['pack']} / {r['slots']['outfit']}{flag}")

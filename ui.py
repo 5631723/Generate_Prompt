@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""写真提示词抽卡台 v1 —— 包装 gacha/sampler.py 的桌面 UI。
+"""写真提示词抽卡台 v1 —— 包装 sampler.py 的桌面 UI。
 
 用法：
     python ui.py            打开图形界面
@@ -9,8 +9,10 @@
 
 设计原则：本文件只负责界面与参数组装。抽卡、去重、黑名单、跨槽校验、
 字数告警全部交给同目录的 sampler.py（subprocess 调用），不修改三件套。
-产物与 sampler 一致：tmp/imagegen/prompts.jsonl（任务队列）、
-output/imagegen/gacha/manifest.jsonl（记录 + 去重依据）。
+产物路径不在此处重复定义，直接复用 sampler 的解析结果：
+项目根下的 tmp/imagegen/prompts.jsonl（任务队列）与
+output/imagegen/gacha/manifest.jsonl（记录 + 去重依据），
+可被 GACHA_PROMPTS / GACHA_MANIFEST 环境变量覆盖。
 """
 from __future__ import annotations
 
@@ -24,10 +26,14 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 
-HERE = Path(__file__).resolve().parent
-SAMPLER = HERE / "sampler.py"
-PROMPTS = HERE.parent / "tmp" / "imagegen" / "prompts.jsonl"
-MANIFEST = HERE.parent / "output" / "imagegen" / "gacha" / "manifest.jsonl"
+import sampler
+
+# 路径单一事实源在 sampler.py：默认落在项目根下，GACHA_* 环境变量可覆盖
+PROJECT_ROOT = sampler.PROJECT_ROOT
+SAMPLER = PROJECT_ROOT / "sampler.py"
+SPEC = sampler.project_path(sampler.env_path("GACHA_SPEC", sampler.DEFAULT_SPEC))
+PROMPTS = sampler.project_path(sampler.env_path("GACHA_PROMPTS", sampler.DEFAULT_PROMPTS))
+MANIFEST = sampler.project_path(sampler.env_path("GACHA_MANIFEST", sampler.DEFAULT_MANIFEST))
 
 SLOT_KEYS = ["hair", "gaze", "anchor", "scene", "outfit", "pose", "light"]
 PACK_ANY = "全部(轮转)"
@@ -84,7 +90,7 @@ def run_sampler(extra_args):
     return subprocess.run(
         [sys.executable, str(SAMPLER)] + extra_args,
         capture_output=True, text=True, encoding="utf-8",
-        cwd=str(HERE), env=env,
+        cwd=str(PROJECT_ROOT), env=env,
     )
 
 
@@ -203,11 +209,12 @@ class App:
         btns.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(8, 0))
         ttk.Button(btns, text="复制提示词", command=self.copy_prompt).pack(side="left")
         ttk.Button(btns, text="定稿重抽(high)", command=self.finalize_high).pack(side="left", padx=6)
-        ttk.Label(btns, text="出图需对接 image_gen.py（未提供）：任务队列导出到 tmp/imagegen",
+        ttk.Label(btns, text=f"出图需对接 image_gen.py（未提供）：任务队列导出到 "
+                             f"{sampler.display_path(PROMPTS)}",
                   foreground="#6B7280").pack(side="left", padx=10)
 
     def _build_status(self):
-        self.status = tk.StringVar(value="就绪。词库：gacha/slots.json")
+        self.status = tk.StringVar(value=f"就绪。词库：{sampler.display_path(SPEC)}")
         bar = ttk.Label(self.root, textvariable=self.status, relief="sunken", anchor="w")
         bar.grid(row=1, column=0, columnspan=2, sticky="ew")
 
@@ -269,7 +276,7 @@ class App:
             parts.append(f"失败：{info['fail']}")
         if proc.stderr.strip():
             parts.append(proc.stderr.strip().splitlines()[0])
-        self.status.set(" · ".join(parts) + f" ｜ 任务队列 -> {PROMPTS}")
+        self.status.set(" · ".join(parts) + f" ｜ 任务队列 -> {sampler.display_path(PROMPTS)}")
 
         if info["fail"] and info["count"] == 0:
             messagebox.showerror("抽卡失败", info["fail"])
@@ -338,8 +345,9 @@ class App:
         }
         PROMPTS.parent.mkdir(parents=True, exist_ok=True)
         PROMPTS.write_text(json.dumps(job, ensure_ascii=False) + "\n", encoding="utf-8")
-        self.status.set(f"定稿任务已写入 {PROMPTS}（quality=high，同组合 {vid}）")
-        messagebox.showinfo("定稿", f"已生成 high 质量任务：\n{PROMPTS}\n\n"
+        shown = sampler.display_path(PROMPTS)
+        self.status.set(f"定稿任务已写入 {shown}（quality=high，同组合 {vid}）")
+        messagebox.showinfo("定稿", f"已生成 high 质量任务：\n{shown}\n\n"
                                     f"（任务队列已更新，交由生图脚本消费）")
 
     def open_prompts_dir(self):

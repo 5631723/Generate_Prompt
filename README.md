@@ -54,12 +54,25 @@ python sampler.py --n 3 --quality high         # 覆盖出图质量
 | `--set KEY=VALUE` | L2 用户覆盖，key ∈ hair / gaze / anchor / scene / outfit / pose / light |
 | `--quality` | 覆盖出图质量（默认 medium，定稿 high） |
 | `--size` | 覆盖出图画幅（默认 1024x1536） |
-| `--prompts` / `--manifest` | 自定义产物路径 |
+| `--spec` | 词库路径，相对路径按项目根解析（默认 `slots.json`） |
+| `--prompts` / `--manifest` | 自定义产物路径，相对路径按项目根解析（与 cwd 无关） |
+
+### 产物路径的环境变量覆盖
+
+优先级：**CLI 显式传参 > `GACHA_*` 环境变量 > 项目根下默认值**。代码里不写死绝对路径，
+`ui.py` 直接复用 `sampler.py` 的解析函数，两边读同一套配置。
+
+| 变量 | 作用 | 默认值（相对项目根） |
+|---|---|---|
+| `GACHA_SPEC` | 词库位置 | `slots.json` |
+| `GACHA_PROMPTS` | 任务队列位置 | `tmp/imagegen/prompts.jsonl` |
+| `GACHA_MANIFEST` | 记录表位置 | `output/imagegen/gacha/manifest.jsonl` |
 
 ## 产物
 
-- **任务队列** `tmp/imagegen/prompts.jsonl`（默认位于项目上级目录）：`{prompt, size, quality, out}`，供生图脚本消费（`image_gen.py` 未随仓库提供）。
-- **记录表** `output/imagegen/gacha/manifest.jsonl`（默认位于项目上级目录）：`{variant_id, draw_seed, hash, chars, warn, slots, prompt}`，既是全量历史，也是去重依据。
+- **任务队列** `tmp/imagegen/prompts.jsonl`（项目根下，每次抽卡覆盖写入）：`{prompt, size, quality, out}`，供生图脚本消费（`image_gen.py` 未随仓库提供）。
+- **记录表** `output/imagegen/gacha/manifest.jsonl`（项目根下，追加写入）：`{variant_id, draw_seed, hash, chars, warn, slots, prompt}`，既是全量历史，也是去重依据。
+- 两个产物目录都在 `.gitignore` 里，仓库只跟踪三件套与 UI。
 
 ## 核心特性
 
