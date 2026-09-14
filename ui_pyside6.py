@@ -25,7 +25,7 @@ import sys
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSettings
 from PySide6.QtGui import QAction, QClipboard, QColor, QDesktopServices, QFont, QTextCharFormat
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
@@ -293,6 +293,8 @@ class MainWindow(QMainWindow):
         self.draw_worker: DrawWorker | None = None
         self.gen_done = 0
         self.gen_total = 0
+        self.settings = QSettings("GeneratePrompt", "GachaUI")
+        self.theme = self.settings.value("theme", "light", type=str)
 
         self.setWindowTitle("写真提示词抽卡台 v1 · Agnes 出图（PySide6）")
         self.resize(1240, 820)
@@ -309,6 +311,7 @@ class MainWindow(QMainWindow):
 
         self._build_status()
         self.refresh_key_state()
+        self.apply_theme(self.theme)
 
     # ---------------- 左侧参数面板 ----------------
     def _build_left(self) -> QWidget:
@@ -474,6 +477,10 @@ class MainWindow(QMainWindow):
         title.setObjectName("panelTitle")
         bar.addWidget(title)
         bar.addStretch()
+        self.btn_theme = QPushButton()
+        self.btn_theme.setFixedWidth(110)
+        self.btn_theme.clicked.connect(self.toggle_theme)
+        bar.addWidget(self.btn_theme)
         btn_open_prompts = QPushButton("打开任务队列目录")
         btn_open_prompts.clicked.connect(self.open_prompts_dir)
         btn_open_out = QPushButton("打开出图目录")
@@ -559,6 +566,17 @@ class MainWindow(QMainWindow):
 
     def _build_status(self):
         self.statusBar().showMessage(f"就绪。词库：{sampler.display_path(SPEC)}")
+
+    # ---------------- 主题切换 ----------------
+    def apply_theme(self, theme: str):
+        self.theme = theme
+        qss = LIGHT_QSS if theme == "light" else DARK_QSS
+        QApplication.instance().setStyleSheet(qss)
+        self.btn_theme.setText("🌙 深色模式" if theme == "light" else "☀️ 浅色模式")
+        self.settings.setValue("theme", theme)
+
+    def toggle_theme(self):
+        self.apply_theme("dark" if self.theme == "light" else "light")
 
     # ---------------- 日志 ----------------
     def _log_clear(self):
@@ -880,7 +898,7 @@ _SPEC_DEFAULTS = agnes.load_defaults(_QuietArgs())
 # ---------------------------------------------------------------------------
 # QSS 样式表
 # ---------------------------------------------------------------------------
-QSS = """
+LIGHT_QSS = """
 QWidget {
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
     font-size: 10pt;
@@ -1072,6 +1090,201 @@ QSplitter::handle:hover {
 """
 
 
+DARK_QSS = """
+QWidget {
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 10pt;
+    color: #c0caf5;
+}
+QMainWindow, QWidget#centralwidget {
+    background: #1a1b26;
+}
+QFrame#leftPanel {
+    background: #24283b;
+    border: 1px solid #414868;
+    border-radius: 10px;
+}
+QLabel#panelTitle {
+    font-size: 13pt;
+    font-weight: 700;
+    color: #e0e0ff;
+    padding: 2px 0;
+}
+QLabel#hintLabel {
+    color: #9aa5ce;
+    font-size: 9pt;
+}
+QLabel#keyLabel {
+    font-size: 9pt;
+    padding: 4px 0;
+}
+QGroupBox {
+    border: 1px solid #414868;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding-top: 8px;
+    font-weight: 600;
+    color: #a9b1d6;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 6px;
+    color: #9aa5ce;
+}
+QPushButton {
+    background: #24283b;
+    border: 1px solid #414868;
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: #c0caf5;
+}
+QPushButton:hover {
+    background: #2f334d;
+    border-color: #565f89;
+}
+QPushButton:pressed {
+    background: #3b4261;
+}
+QPushButton:disabled {
+    color: #565f89;
+    background: #1f2335;
+    border-color: #2f334d;
+}
+QPushButton#primaryButton {
+    background: #7aa2f7;
+    border: 1px solid #7aa2f7;
+    color: #1a1b26;
+    font-weight: 600;
+    padding: 8px 14px;
+}
+QPushButton#primaryButton:hover {
+    background: #89b4fa;
+}
+QPushButton#primaryButton:pressed {
+    background: #6c92e8;
+}
+QPushButton#primaryButton:disabled {
+    background: #3b4261;
+    border-color: #3b4261;
+    color: #565f89;
+}
+QComboBox, QLineEdit, QSpinBox {
+    background: #1f2335;
+    border: 1px solid #414868;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #c0caf5;
+    selection-background-color: #7aa2f7;
+    selection-color: #1a1b26;
+}
+QComboBox:focus, QLineEdit:focus, QSpinBox:focus {
+    border: 1px solid #7aa2f7;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+QComboBox QAbstractItemView {
+    background: #24283b;
+    border: 1px solid #414868;
+    selection-background-color: #3b4261;
+    selection-color: #e0e0ff;
+    outline: none;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 18px;
+    border: none;
+    background: transparent;
+}
+QCheckBox {
+    spacing: 6px;
+    color: #c0caf5;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #414868;
+    border-radius: 4px;
+    background: #1f2335;
+}
+QCheckBox::indicator:checked {
+    background: #7aa2f7;
+    border-color: #7aa2f7;
+}
+QTableWidget {
+    background: #1f2335;
+    border: 1px solid #414868;
+    border-radius: 8px;
+    gridline-color: #2f334d;
+    selection-background-color: #3b4261;
+    selection-color: #e0e0ff;
+    alternate-background-color: #24283b;
+}
+QHeaderView::section {
+    background: #24283b;
+    border: none;
+    border-bottom: 1px solid #414868;
+    padding: 6px 8px;
+    font-weight: 600;
+    color: #a9b1d6;
+}
+QTextEdit {
+    background: #1f2335;
+    color: #c0caf5;
+    border: 1px solid #414868;
+    border-radius: 8px;
+    padding: 8px;
+    selection-background-color: #3b4261;
+}
+QPlainTextEdit#logView {
+    background: #15161e;
+    color: #c0caf5;
+    border: 1px solid #2f334d;
+    border-radius: 8px;
+    padding: 8px;
+    font-family: "Consolas", "Cascadia Code", monospace;
+}
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #414868;
+    border-radius: 5px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #565f89;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+}
+QScrollBar::handle:horizontal {
+    background: #414868;
+    border-radius: 5px;
+    min-width: 30px;
+}
+QStatusBar {
+    background: #24283b;
+    border-top: 1px solid #414868;
+    color: #9aa5ce;
+}
+QSplitter::handle {
+    background: #414868;
+    height: 4px;
+}
+QSplitter::handle:hover {
+    background: #565f89;
+}
+"""
+
+
 # ---------------------------------------------------------------------------
 # 自检与入口
 # ---------------------------------------------------------------------------
@@ -1116,7 +1329,6 @@ def main(argv=None) -> int:
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setStyleSheet(QSS)
 
     win = MainWindow()
     win.show()
