@@ -26,7 +26,7 @@ import threading
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl, QSettings
-from PySide6.QtGui import QAction, QClipboard, QColor, QDesktopServices, QFont, QTextCharFormat
+from PySide6.QtGui import QAction, QClipboard, QColor, QDesktopServices, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
