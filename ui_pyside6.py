@@ -514,7 +514,13 @@ class MainWindow(QMainWindow):
         self.table.itemSelectionChanged.connect(self.on_select)
         lay.addWidget(self.table, 1)
 
-        lay.addWidget(QLabel("提示词预览（点击上方条目）"))
+        preview_bar = QHBoxLayout()
+        preview_bar.addWidget(QLabel("提示词预览（点击上方条目）"))
+        preview_bar.addStretch()
+        self.btn_edit = QPushButton("✎ 编辑提示词")
+        self.btn_edit.clicked.connect(self.toggle_edit)
+        preview_bar.addWidget(self.btn_edit)
+        lay.addLayout(preview_bar)
         self.preview = QTextEdit()
         self.preview.setReadOnly(True)
         self.preview.setMinimumHeight(120)
@@ -819,6 +825,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"已刷新 manifest（{len(self.records)} 条记录）")
 
     def on_select(self):
+        if not self.preview.isReadOnly():
+            self._save_edit()
         items = self.table.selectedItems()
         if not items:
             return
@@ -837,6 +845,30 @@ class MainWindow(QMainWindow):
         slots = rec.get("slots", {})
         lines.append("slots: " + json.dumps(slots, ensure_ascii=False))
         return "\n".join(lines)
+
+    def toggle_edit(self):
+        if self.preview.isReadOnly():
+            if not self.table.selectedItems():
+                QMessageBox.information(self, "提示", "先选择一条结果")
+                return
+            self.preview.setReadOnly(False)
+            self.btn_edit.setText("保存")
+            self.statusBar().showMessage("编辑提示词中…完成后点「保存」")
+        else:
+            self._save_edit()
+            self.statusBar().showMessage("提示词已更新")
+
+    def _save_edit(self):
+        items = self.table.selectedItems()
+        if items:
+            vid = self.table.item(items[0].row(), 0).text()
+            rec = self.records.get(vid)
+            if rec:
+                content = self.preview.toPlainText()
+                parts = content.split("\n\n", 1)
+                rec["prompt"] = parts[0].strip()
+        self.preview.setReadOnly(True)
+        self.btn_edit.setText("✎ 编辑提示词")
 
     def copy_prompt(self):
         content = self.preview.toPlainText().strip()
