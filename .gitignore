@@ -1,7 +1,7 @@
 # 采样产物（任务队列 / 记录表），默认落在项目根下，可由 GACHA_* 重定向
 tmp/
 output/
-
+codex-config/
 __pycache__/
 *.pyc
 
