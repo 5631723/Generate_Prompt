@@ -4,3 +4,7 @@ output/
 
 __pycache__/
 *.pyc
+
+# API 密钥文件（agnes.py 支持 agnes.key / .agnes.key），禁止提交
+*.key
+.agnes.key

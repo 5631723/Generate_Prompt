@@ -14,14 +14,33 @@ import random
 import sys
 from pathlib import Path
 
-# 路径约定：本文件所在目录即项目根，产物默认写在根下的 tmp/ 与 output/。
+# 路径约定：源码运行时本文件所在目录即项目根；打包成 EXE 后改为 EXE 所在目录，
+# 这样产物（tmp/ output/ images/）永远落在用户看得见、可备份的地方，
+# 而不是 PyInstaller 解包出来的 %TEMP%\_MEIxxxx 临时目录（退出即销毁）。
 # 不在代码里写死绝对路径：相对路径一律按项目根展开（与 cwd 无关），
 # 默认值可被 GACHA_SPEC / GACHA_PROMPTS / GACHA_MANIFEST 环境变量或 CLI 覆盖。
-PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def runtime_root() -> Path:
+    """EXE 模式取 EXE 所在目录，源码模式取仓库根。"""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def bundle_root() -> Path:
+    """随 EXE 打包的只读资源目录；源码模式下与项目根相同。"""
+    embedded = getattr(sys, "_MEIPASS", None)
+    return Path(embedded).resolve() if embedded else runtime_root()
+
+
+PROJECT_ROOT = runtime_root()
+BUNDLE_ROOT = bundle_root()
 
 DEFAULT_SPEC = "slots.json"
 DEFAULT_PROMPTS = "tmp/imagegen/prompts.jsonl"
 DEFAULT_MANIFEST = "output/imagegen/gacha/manifest.jsonl"
+DEFAULT_IMAGES = "images"
 
 
 def env_path(name: str, fallback: str) -> str:
@@ -34,6 +53,21 @@ def project_path(raw) -> Path:
     """绝对路径原样保留，相对路径按项目根展开。"""
     path = Path(str(raw)).expanduser()
     return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def spec_path(raw=None) -> Path:
+    """词库定位：CLI 传参 > GACHA_SPEC > 项目根 slots.json > EXE 内置副本。
+
+    项目根优先，是为了让打包后仍能直接改 EXE 旁边的 slots.json 调词库，
+    不必重新打包；只有外部副本不存在时才退回内置的只读副本。
+    """
+    explicit = str(raw).strip() if raw else env_path("GACHA_SPEC", "").strip()
+    if explicit:
+        return project_path(explicit)
+    external = PROJECT_ROOT / DEFAULT_SPEC
+    if external.is_file():
+        return external
+    return BUNDLE_ROOT / DEFAULT_SPEC
 
 
 def display_path(path) -> str:
@@ -223,7 +257,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     # 优先级：CLI 显式传参 > GACHA_* 环境变量 > 项目根下的默认路径
-    args.spec = project_path(env_path("GACHA_SPEC", DEFAULT_SPEC) if args.spec is None else args.spec)
+    args.spec = spec_path(args.spec)
     args.prompts = project_path(
         env_path("GACHA_PROMPTS", DEFAULT_PROMPTS) if args.prompts is None else args.prompts
     )

@@ -1,11 +1,22 @@
 {
   "meta": {
-    "model": "gpt-image-2",
+    "model": "agnes-image-2.5-flash",
     "size": "1024x1536",
     "quality_draft": "medium",
     "quality_final": "high",
+    "image_api": {
+      "provider": "agnes-ai",
+      "model": "agnes-image-2.5-flash",
+      "endpoint": "https://apihub.agnes-ai.com/v1/images/generations",
+      "size_draft": "1K",
+      "size_final": "2K",
+      "ratio": "3:4",
+      "ratios": ["1:1", "3:4", "4:3", "16:9", "9:16", "2:3", "3:2", "21:9"],
+      "timeout": 300,
+      "note": "出图参数的事实源。size 仍是历史 gpt-image-2 枚举，由 agnes.py 折算；ratio 3:4 对应 L0 锁死的竖构图。Agnes 无 quality 参数，medium→1K、high→2K"
+    },
     "char_range": [200, 270],
-    "note": "当前启用 6 包（city/home/night/retro/cafe/athleisure）。seaside 曾考虑引入，因黑名单未重审已移除；新增槽位候选值必须过黑名单 + requires 校验再入库"
+    "note": "当前启用 6 包（city/home/night/retro/cafe/athleisure）。seaside 曾考虑引入，因黑名单未重审已移除；新增槽位候选值必须过黑名单 + requires 校验再入库。出图侧改动只动 image_api，不动采样逻辑"
   },
   "l0": {
     "subject": "一位 25 岁的东亚成年女性",
