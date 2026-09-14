@@ -30,7 +30,7 @@ from PySide6.QtGui import QAction, QClipboard, QColor, QDesktopServices, QFont, 
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
-    QMainWindow, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea,
+    QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea,
     QSpinBox, QSplitter, QStatusBar, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
 )
@@ -551,9 +551,15 @@ class MainWindow(QMainWindow):
 
         head = QHBoxLayout()
         head.addWidget(QLabel("出图日志"))
-        self.gen_progress = QLabel("空闲")
-        self.gen_progress.setObjectName("hintLabel")
-        head.addWidget(self.gen_progress)
+        self.gen_progress_bar = QProgressBar()
+        self.gen_progress_bar.setRange(0, 0)
+        self.gen_progress_bar.setTextVisible(False)
+        self.gen_progress_bar.setFixedHeight(14)
+        self.gen_progress_bar.setFixedWidth(180)
+        head.addWidget(self.gen_progress_bar)
+        self.gen_progress_label = QLabel("空闲")
+        self.gen_progress_label.setObjectName("hintLabel")
+        head.addWidget(self.gen_progress_label)
         head.addStretch()
         btn_open_img = QPushButton("打开图片目录")
         btn_open_img.clicked.connect(self.open_outdir)
@@ -645,7 +651,8 @@ class MainWindow(QMainWindow):
         self._log(f"$ {command}", "#9cdcfe")
         self._log(f"—— {title} ——", "#9cdcfe")
         self._set_running(True)
-        self.gen_progress.setText(f"{title}：0/…")
+        self.gen_progress_bar.setRange(0, 0)
+        self.gen_progress_label.setText(f"{title}：0/…")
         self.gen_worker.start()
         return True
 
@@ -673,8 +680,13 @@ class MainWindow(QMainWindow):
 
     def _refresh_progress(self):
         total = self.gen_total
-        self.gen_progress.setText(
-            f"出图中：{self.gen_done}/{total}" if total else f"出图中：{self.gen_done}")
+        if total:
+            self.gen_progress_bar.setRange(0, total)
+            self.gen_progress_bar.setValue(self.gen_done)
+            self.gen_progress_label.setText(f"{self.gen_done}/{total}")
+        else:
+            self.gen_progress_bar.setRange(0, 0)
+            self.gen_progress_label.setText(f"出图中：{self.gen_done}")
         self.statusBar().showMessage(
             f"Agnes 出图：{self.gen_done}/{total or '?'} 完成，图片 -> {sampler.display_path(OUTDIR)}")
 
@@ -683,7 +695,10 @@ class MainWindow(QMainWindow):
         agnes.ABORT = False
         self._set_running(False)
         total = self.gen_total or self.gen_done
-        self.gen_progress.setText(f"结束：{self.gen_done}/{total}，退出码 {code}")
+        if total:
+            self.gen_progress_bar.setRange(0, total)
+            self.gen_progress_bar.setValue(self.gen_done)
+        self.gen_progress_label.setText(f"结束：{self.gen_done}/{total}，退出码 {code}")
         self._log(f"—— 结束，退出码 {code} ——", "#9cdcfe" if code == 0 else "#f48771")
         self.statusBar().showMessage(f"出图结束（退出码 {code}）｜ 图片 -> {sampler.display_path(OUTDIR)}")
         self.refresh_tree_state()
@@ -694,12 +709,15 @@ class MainWindow(QMainWindow):
     def stop_gen(self):
         if self.gen_worker is None:
             return
-        if not QMessageBox.question(self, "停止出图",
-                                    "确定终止当前出图任务？已完成的图片会保留。"):
+        reply = QMessageBox.question(
+            self, "停止出图", "确定终止当前出图任务？已完成的图片会保留。",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
             return
+        self.btn_gen_stop.setEnabled(False)
         self.gen_worker.stop()
         self._log("[stop] 已请求停止：在途请求等它回来，之后的任务不再派发", "#ce9178")
-        self.gen_progress.setText("停止中…")
+        self.gen_progress_label.setText("停止中…")
 
     def gen_queue_all(self):
         if not PROMPTS.exists():
