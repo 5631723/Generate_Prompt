@@ -907,6 +907,16 @@ QWidget {
 QMainWindow, QWidget#centralwidget {
     background: #f3f4f6;
 }
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QScrollArea > QWidget {
+    background: transparent;
+}
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
 QFrame#leftPanel {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -1099,6 +1109,16 @@ QWidget {
 QMainWindow, QWidget#centralwidget {
     background: #1a1b26;
 }
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QScrollArea > QWidget {
+    background: transparent;
+}
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
 QFrame#leftPanel {
     background: #24283b;
     border: 1px solid #414868;
@@ -1119,6 +1139,7 @@ QLabel#keyLabel {
     padding: 4px 0;
 }
 QGroupBox {
+    background: #1f2335;
     border: 1px solid #414868;
     border-radius: 8px;
     margin-top: 12px;
